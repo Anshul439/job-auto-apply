@@ -1,0 +1,6 @@
+node_modules/
+.pnpm-store/
+dist/
+.env
+screenshots/
+~/.wellfound-automation/

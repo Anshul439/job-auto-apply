@@ -1,0 +1,21 @@
+{
+  "name": "wellfound-auto-apply",
+  "version": "1.0.0",
+  "description": "Local Playwright automation for applying to jobs on Wellfound.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "start:built": "node dist/index.js"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.0.0"
+  }
+}
