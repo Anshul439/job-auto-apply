@@ -1,7 +1,7 @@
 import path from 'path';
 import { Page, Locator, BrowserContext } from 'playwright';
 import { SELECTORS, WELLFOUND_DOMAIN_RE } from './selectors.js';
-import * as log from './logger.js';
+import * as log from '../logger.js';
 
 const SCREENSHOTS_DIR = path.resolve('screenshots');
 

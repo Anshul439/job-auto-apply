@@ -1,6 +1,6 @@
 import { Page } from 'playwright';
 import { SELECTORS, JOB_URL_RE } from './selectors.js';
-import * as log from './logger.js';
+import * as log from '../logger.js';
 
 const WELLFOUND_BASE = 'https://wellfound.com';
 

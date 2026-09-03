@@ -1,7 +1,7 @@
 import readline from 'readline';
 import 'dotenv/config';
 
-import { launchBrowser, getActivePage, closeBrowser } from './browser.js';
+import { launchBrowser, getActivePage, closeBrowser } from '../browser.js';
 import {
   getJobListings,
   openJob,
@@ -21,7 +21,7 @@ import {
   dismissModal,
   ApplicationResult,
 } from './application.js';
-import * as log from './logger.js';
+import * as log from '../logger.js';
 
 // ─── CLI helpers ─────────────────────────────────────────────────────────────
 

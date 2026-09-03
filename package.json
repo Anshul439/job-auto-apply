@@ -4,7 +4,8 @@
   "description": "Local Playwright automation for applying to jobs on Wellfound.",
   "type": "module",
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start:wellfound": "tsx src/wellfound/index.ts",
+    "start:instahyre": "tsx src/instahyre/index.ts",
     "build": "tsc",
     "start:built": "node dist/index.js"
   },
