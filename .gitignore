@@ -4,3 +4,4 @@ dist/
 .env
 screenshots/
 ~/.wellfound-automation/
+skipped-urls.json

@@ -22,6 +22,7 @@ import {
   dismissModal,
   ApplicationResult,
 } from './application.js';
+import { saveSkippedUrl } from './skipped-urls.js';
 import * as log from '../logger.js';
 
 
@@ -38,19 +39,25 @@ function waitForEnter(prompt: string): Promise<void> {
   });
 }
 
-
 async function processJob(
   context: Awaited<ReturnType<typeof launchBrowser>>,
   jobUrl: string,
   processed: Set<string>,
-): Promise<ApplicationResult> {
+): Promise<{
+  result: ApplicationResult;
+  screenshots: string[];
+}> {
+  const screenshots: string[] = [];
   const page = await getActivePage(context);
   const jobId = getJobId(jobUrl);
 
   // Duplicate guard.
   if (processed.has(jobId)) {
     log.skip('Already processed in this run — skipping');
-    return 'already_applied';
+    return {
+      result: 'already_applied',
+      screenshots,
+    };
   }
   processed.add(jobId);
 
@@ -61,7 +68,10 @@ async function processJob(
     resolvedUrl = await openJob(page, jobUrl);
   } catch (err) {
     log.error(`Navigation failed: ${(err as Error).message}`);
-    return 'skipped_error';
+    return {
+      result: 'skipped_error',
+      screenshots,
+    };
   }
 
   // Update processed set with resolved URL in case of redirects.
@@ -73,7 +83,10 @@ async function processJob(
 
   if (await isAlreadyApplied(page)) {
     log.skip('Already applied');
-    return 'already_applied';
+    return {
+      result: 'already_applied',
+      screenshots,
+    };
   }
 
   log.step('Looking for Apply button');
@@ -81,44 +94,66 @@ async function processJob(
 
   if (!applyBtn) {
     log.skip('No Apply button found');
-    return 'skipped_no_apply_button';
+    return {
+      result: 'skipped_no_apply_button',
+      screenshots,
+    };
   }
   log.step('Apply button found');
 
   log.step('Opening application');
-  const modal = await openApplication(page, context, applyBtn);
+  const application = await openApplication(page, context, applyBtn);
+  screenshots.push(...application.screenshots);
+
+  const modal = application.modal;
 
   if (!modal) {
     // Either a new tab opened (external) or nothing happened.
     log.skip('External application (new tab opened or no modal)');
-    return 'skipped_external';
+    return {
+      result: 'skipped_external',
+      screenshots,
+    };
   }
   log.step('Application form detected');
 
   if (await hasCaptcha(modal)) {
     const screenshot = await takeDebugScreenshot(page, 'captcha');
+    screenshots.push(screenshot);
     log.error(`CAPTCHA detected — skipping. Screenshot: ${screenshot}`);
     await dismissModal(page, modal);
-    return 'skipped_captcha';
+    return {
+      result: 'skipped_captcha',
+      screenshots,
+    };
   }
 
   if (await isExternalApplication(modal)) {
     log.skip('External application (modal contains external link)');
     await dismissModal(page, modal);
-    return 'skipped_external';
+    return {
+      result: 'skipped_external',
+      screenshots,
+    };
   }
 
   if (await hasMandatoryAdditionalFields(modal)) {
     log.skip('Mandatory question / field detected');
     await dismissModal(page, modal);
-    return 'skipped_mandatory_fields';
+    return {
+      result: 'skipped_mandatory_fields',
+      screenshots,
+    };
   }
   log.step('No mandatory additional fields');
 
   if (await hasApplicationLimitError(modal)) {
     log.error('Wellfound limit reached: too many active applications. Stopping run.');
     await dismissModal(page, modal);
-    return 'skipped_rate_limited';
+    return {
+      result: 'skipped_rate_limited',
+      screenshots,
+    };
   }
 
   log.step('Submitting application');
@@ -129,12 +164,19 @@ async function processJob(
     if (await hasApplicationLimitError(modal)) {
       log.error('Wellfound limit reached: too many active applications. Stopping run.');
       await dismissModal(page, modal);
-      return 'skipped_rate_limited';
+      return {
+        result: 'skipped_rate_limited',
+        screenshots,
+      };
     }
     const screenshot = await takeDebugScreenshot(page, 'submit_failed');
+    screenshots.push(screenshot);
     log.error(`Submission failed or unexpected form state. Screenshot: ${screenshot}`);
     await dismissModal(page, modal).catch(() => undefined);
-    return 'skipped_error';
+    return {
+      result: 'skipped_error',
+      screenshots,
+    };
   }
 
   const verified = await verifyApplication(page);
@@ -146,7 +188,10 @@ async function processJob(
     log.success('Applied (could not confirm state change — treating as success)');
   }
 
-  return 'applied';
+  return {
+    result: 'applied',
+    screenshots,
+  };
 }
 
 
@@ -223,24 +268,36 @@ async function main(): Promise<void> {
     try {
       log.jobHeader(i + 1, jobUrls.length, jobUrl);
 
-      let result: ApplicationResult;
+      let outcome: {
+        result: ApplicationResult;
+        screenshots: string[];
+      }   
 
       try {
-        result = await processJob(context, jobUrl, processed);
+        outcome = await processJob(context, jobUrl, processed);
       } catch (err) {
         log.error(`Unexpected error: ${(err as Error).message}`);
+
+        const screenshots: string[] = [];
 
         try {
           const activePage = await getActivePage(context);
           const screenshot = await takeDebugScreenshot(activePage, 'unexpected_error');
+          
+          screenshots.push(screenshot);
+
           log.info(`Screenshot saved: ${screenshot}`);
           log.info(`Job URL: ${jobUrl}`);
+
         } catch { /* ignore */ }
 
-        result = 'skipped_error';
+        outcome = {result: 'skipped_error', screenshots};
       }
 
+      const {result , screenshots} = outcome;
+
       stats[result]++;
+      await saveSkippedUrl(jobUrl, result, screenshots);
 
       // Stop the entire run if Wellfound's application limit was hit.
       if (result === 'skipped_rate_limited') break;
