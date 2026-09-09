@@ -34,7 +34,7 @@ export async function openApplication(
   page: Page,
   context: BrowserContext,
   applyButton: Locator,
-): Promise<Locator | null> {
+): Promise<{ modal: Locator | null, screenshots: string[] }> {
   const urlBefore = page.url();
 
   // Register BEFORE clicking — a new tab may open immediately.
@@ -54,7 +54,10 @@ export async function openApplication(
     await (newTabPage as Page).close().catch(() => {});
 
     if (!WELLFOUND_DOMAIN_RE.test(tabUrl)) {
-      return null; // Genuine external ATS in a new tab → skip
+      return {
+        modal: null,
+        screenshots: []
+      }; // Genuine external ATS in a new tab → skip
     }
     // Wellfound opened its own tab (rare edge case).
     // The application form might still be on the original page, so fall through.
@@ -63,8 +66,8 @@ export async function openApplication(
   // 2. Current tab navigated to a Wellfound apply URL?
   const urlAfter = page.url();
   if (urlAfter !== urlBefore) {
-    if (!WELLFOUND_DOMAIN_RE.test(urlAfter)) return null; // External redirect
-    return mainArea(page);
+    if (!WELLFOUND_DOMAIN_RE.test(urlAfter)) return { modal: null, screenshots: [] }; // External redirect
+    return { modal: await mainArea(page), screenshots: [] };
   }
 
   // 3. ReactModal overlay appeared? (Wellfound's react-modal)
@@ -73,14 +76,14 @@ export async function openApplication(
   const overlay = page.locator('.ReactModal__Overlay--after-open').first();
   if (await overlay.isVisible().catch(() => false)) {
     log.info('Detected ReactModal overlay');
-    return overlay;
+    return { modal: overlay, screenshots: [] };
   }
 
   // 4. Standard dialog / aria-modal?
   const dialog = page.locator('[role="dialog"], [aria-modal="true"]').first();
   if (await dialog.isVisible().catch(() => false)) {
     log.info('Detected ARIA dialog');
-    return dialog;
+    return { modal: dialog, screenshots: [] };
   }
 
   // 5. Submit button inside ReactModalPortal?
@@ -96,13 +99,13 @@ export async function openApplication(
 
   if (portalSubmitVisible) {
     log.info('Detected submit button inside ReactModalPortal');
-    return page.locator('.ReactModalPortal').first();
+    return { modal: await page.locator('.ReactModalPortal').first(), screenshots: [] };
   }
 
   // 6. Nothing detected
   const screenshotPath = await takeDebugScreenshot(page, 'apply_no_form_detected');
   log.info(`No application form detected. Screenshot saved: ${screenshotPath}`);
-  return null;
+  return { modal: null, screenshots: [screenshotPath] };
 }
 
 /** Returns the main content area of the page, falling back to body. */
