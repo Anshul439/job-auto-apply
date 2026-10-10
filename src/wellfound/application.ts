@@ -14,6 +14,7 @@ export type ApplicationResult =
   | 'skipped_captcha'
   | 'skipped_no_apply_button'
   | 'skipped_rate_limited'
+  | 'skipped_location_restricted'
   | 'skipped_error';
 
 
@@ -168,8 +169,42 @@ export async function hasMandatoryAdditionalFields(modal: Locator): Promise<bool
       if (!value) return true;
     }
 
+    // Check required radio groups — a group is unanswered if no option in it
+    // is checked. We group by `name` because each radio button in a group
+    // is a separate <input> element, but only one needs to be checked.
+    const radioInputs = Array.from(
+      el.querySelectorAll<HTMLInputElement>('input[type="radio"]'),
+    );
+    const radioGroups = new Map<string, HTMLInputElement[]>();
+    for (const radio of radioInputs) {
+      const name = radio.name || radio.id; // fall back to id if name is missing
+      if (!name) continue;
+      if (!radioGroups.has(name)) radioGroups.set(name, []);
+      radioGroups.get(name)!.push(radio);
+    }
+    for (const [, group] of radioGroups) {
+      const isRequired = group.some(
+        (r) => r.required || r.getAttribute('aria-required') === 'true',
+      );
+      if (!isRequired) continue;
+      const isAnswered = group.some((r) => r.checked);
+      if (!isAnswered) return true;
+    }
+
     return false;
   });
+}
+
+/**
+ * The submit button is disabled when the company has location/relocation
+ * restrictions that don't match the user's profile.
+ */
+export async function hasLocationRestriction(modal: Locator): Promise<boolean> {
+  return modal
+    .locator(SELECTORS.locationRestriction)
+    .first()
+    .isVisible()
+    .catch(() => false);
 }
 
 /**
@@ -228,6 +263,13 @@ export async function submitApplication(
   }
 
   if (!submitBtn) return false;
+
+  // If the button is disabled (e.g. location restriction), skip immediately
+  // instead of waiting 30s for Playwright's actionability timeout.
+  const isDisabled = await submitBtn.evaluate(
+    (el) => (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true',
+  ).catch(() => false);
+  if (isDisabled) return false;
 
   const urlBefore = page.url();
   await submitBtn.click();
