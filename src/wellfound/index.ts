@@ -16,6 +16,7 @@ import {
   hasCaptcha,
   hasMandatoryAdditionalFields,
   hasApplicationLimitError,
+  hasLocationRestriction,
   submitApplication,
   verifyApplication,
   takeDebugScreenshot,
@@ -115,6 +116,12 @@ async function processJob(
   }
   log.step('No mandatory additional fields');
 
+  if (await hasLocationRestriction(modal)) {
+    log.skip('Location / relocation restriction — submit button disabled');
+    await dismissModal(page, modal);
+    return 'skipped_location_restricted';
+  }
+
   if (await hasApplicationLimitError(modal)) {
     log.error('Wellfound limit reached: too many active applications. Stopping run.');
     await dismissModal(page, modal);
@@ -151,14 +158,15 @@ async function processJob(
 
 
 interface Stats {
-  applied:                  number;
-  already_applied:          number;
-  skipped_mandatory_fields: number;
-  skipped_external:         number;
-  skipped_captcha:          number;
-  skipped_no_apply_button:  number;
-  skipped_rate_limited:     number;
-  skipped_error:            number;
+  applied:                      number;
+  already_applied:              number;
+  skipped_mandatory_fields:     number;
+  skipped_external:             number;
+  skipped_captcha:              number;
+  skipped_no_apply_button:      number;
+  skipped_rate_limited:         number;
+  skipped_location_restricted:  number;
+  skipped_error:                number;
 }
 
 function printSummary(stats: Stats): void {
@@ -168,9 +176,10 @@ function printSummary(stats: Stats): void {
   log.summaryLine('Skipped — mandatory fields', stats.skipped_mandatory_fields, '\x1b[33m');
   log.summaryLine('Skipped — external app',     stats.skipped_external,         '\x1b[33m');
   log.summaryLine('Skipped — CAPTCHA',          stats.skipped_captcha,          '\x1b[31m');
-  log.summaryLine('Skipped — no Apply button',  stats.skipped_no_apply_button,  '\x1b[90m');
-  log.summaryLine('Skipped — rate limited',     stats.skipped_rate_limited,     '\x1b[31m');
-  log.summaryLine('Skipped — error',            stats.skipped_error,            '\x1b[31m');
+  log.summaryLine('Skipped — no Apply button',  stats.skipped_no_apply_button,      '\x1b[90m');
+  log.summaryLine('Skipped — location',         stats.skipped_location_restricted,  '\x1b[33m');
+  log.summaryLine('Skipped — rate limited',     stats.skipped_rate_limited,         '\x1b[31m');
+  log.summaryLine('Skipped — error',            stats.skipped_error,                '\x1b[31m');
   log.divider();
 }
 
@@ -213,9 +222,10 @@ async function main(): Promise<void> {
     skipped_mandatory_fields: 0,
     skipped_external:         0,
     skipped_captcha:          0,
-    skipped_no_apply_button:  0,
-    skipped_rate_limited:     0,
-    skipped_error:            0,
+    skipped_no_apply_button:      0,
+    skipped_rate_limited:         0,
+    skipped_location_restricted:  0,
+    skipped_error:                0,
   };
 
   for (let i = 0; i < jobUrls.length; i++) {

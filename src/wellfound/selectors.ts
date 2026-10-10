@@ -131,6 +131,15 @@ export const SELECTORS = {
   ].join(', '),
 
   /**
+   * Location / relocation restriction warning inside the modal.
+   * The submit button is disabled when this appears.
+   */
+  locationRestriction: [
+    ':has-text("not accepting applications from your current location")',
+    ':has-text("timezone or relocation constraints")',
+  ].join(', '),
+
+  /**
    * CAPTCHA indicators. If any of these are found, we stop and skip.
    */
   captcha: [
