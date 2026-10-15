@@ -1,3 +1,24 @@
+## Website & Autofill Extension
+
+[![Apply to jobs in seconds with Zapply.](assets/apply-faster-banner.png)](https://app.zapply.jobs/onboarding?ref=github-cta-anshul439)
+
+Explore Zapply’s website and check out:
+
+- Our Chrome extension, which autofills job applications in seconds.
+- A dedicated job board featuring the latest openings across various roles.
+- User accounts with multiple profiles for different resume types and roles.
+- Job application tracking with streaks and commitment awards.
+
+Experience an advanced career journey with us! 🚀
+
+<p align="center">
+  <a href="https://app.zapply.jobs/onboarding?ref=github-cta-anshul439">
+    <img src="assets/get-started-button.png" alt="Visit Zapply" width="700">
+  </a>
+</p>
+
+<p align="right"><sub>Sponsored by Zapply</sub></p>
+
 # job-auto-apply
 
 Automates one-click job applications on **Wellfound** and **Instahyre** using Playwright. Runs locally in your own browser with your own session — no AI, no backend, completely free.
